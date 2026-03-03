@@ -3,16 +3,32 @@ export const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
 const API_BASE = API
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${API_BASE}${path}`, {
-        headers: { 'Content-Type': 'application/json' },
         ...init,
+        headers: { ...headers, ...init?.headers },
     })
+
+    if (res.status === 401 && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        throw new Error('Unauthorized');
+    }
+
     if (!res.ok) {
         const text = await res.text()
         throw new Error(`API ${path}: ${res.status} ${text}`)
     }
     return res.json()
 }
+
+export const login = (body: any) => api<{ token: string }>('/api/login', { method: 'POST', body: JSON.stringify(body) })
+export const logout = () => api<any>('/api/logout', { method: 'POST' })
 
 export const getStatus = () => api<any>('/api/status')
 export const getDevices = () => api<any>('/api/devices')

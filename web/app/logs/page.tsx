@@ -11,7 +11,13 @@ export default function LogsPage() {
 
     useEffect(() => {
         if (!running) return
-        const es = new EventSource(`${API}/api/logs`)
+        const token = localStorage.getItem('token')
+        if (!token) {
+            window.location.href = '/login'
+            return
+        }
+
+        const es = new EventSource(`${API}/api/logs?token=${token}`)
         esRef.current = es
         es.onmessage = (e) => {
             setLines(prev => {
@@ -19,7 +25,10 @@ export default function LogsPage() {
                 return next.length > 2000 ? next.slice(next.length - 2000) : next
             })
         }
-        es.onerror = () => setErr('Log stream disconnected. Is the daemon running with journald?')
+        es.onerror = () => {
+            setErr('Log stream disconnected. Check backend or auth.')
+            es.close()
+        }
         return () => { es.close(); esRef.current = null }
     }, [running])
 

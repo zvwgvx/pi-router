@@ -37,7 +37,12 @@ export default function TerminalPage() {
             term.open(containerRef.current!)
             fitAddon.fit()
 
-            const wsUrl = API.replace('http', 'ws') + '/api/terminal'
+            const token = localStorage.getItem('token')
+            if (!token) {
+                window.location.href = '/login'
+                return
+            }
+            const wsUrl = API.replace('http', 'ws') + '/api/terminal?token=' + token
             ws = new WebSocket(wsUrl)
 
             ws.onopen = () => term.writeln('\x1b[32mConnected to RPi shell.\x1b[0m')

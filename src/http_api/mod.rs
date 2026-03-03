@@ -1,9 +1,10 @@
 use crate::approval::{DeviceState, SharedRegistry};
 use crate::config::RouterConfig;
 use axum::{
-    extract::{Path, State, ws::{WebSocket, WebSocketUpgrade, Message}},
+    extract::{Path, State, Request, ws::{WebSocket, WebSocketUpgrade, Message}},
     http::{HeaderValue, Method, StatusCode},
-    response::{Json, Sse, sse::Event},
+    middleware::{self, Next},
+    response::{Json, Response, IntoResponse, Sse, sse::Event},
     routing::{delete, get, post, put},
     Router,
 };
@@ -26,6 +27,7 @@ pub struct AppState {
     pub config_path: String,
     pub start_time: std::time::Instant,
     pub sys_monitor: std::sync::Arc<std::sync::Mutex<crate::sys_stats::SystemMonitor>>,
+    pub sessions: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, std::time::Instant>>>,
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -36,7 +38,7 @@ pub fn build_router(state: AppState) -> Router {
         .allow_headers(Any)
         .allow_origin(Any);
 
-    Router::new()
+    let protected = Router::new()
         // System
         .route("/api/status",                  get(get_status))
         // Devices
@@ -60,6 +62,13 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/system",                  post(post_system))
         .route("/api/logs",                    get(get_logs))
         .route("/api/terminal",                get(terminal_ws))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .with_state(state.clone());
+
+    Router::new()
+        .merge(protected)
+        .route("/api/login",                   post(login))
+        .route("/api/logout",                  post(logout))
         .layer(cors)
         .with_state(state)
 }
@@ -72,6 +81,89 @@ pub async fn serve(state: AppState, addr: &str) -> Result<(), crate::error::Rout
     info!(addr, "Web API listening");
     axum::serve(listener, app).await
         .map_err(|e| crate::error::RouterError::Daemon(format!("HTTP serve: {e}")))
+}
+
+// ─── Middleware: Auth ─────────────────────────────────────────────────────────
+
+async fn auth_middleware(
+    State(state): State<AppState>,
+    req: Request,
+    next: Next,
+) -> Response {
+    // 1. Try Authorization header
+    let token = req.headers()
+        .get("Authorization")
+        .and_then(|val| val.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "))
+        .map(|s| s.to_string());
+    
+    // 2. Fallback to query parameter `?token=...` for SSE and WebSocket
+    let token = token.or_else(|| {
+        let query = req.uri().query().unwrap_or("");
+        query.split('&').find_map(|kv| {
+            let mut parts = kv.splitn(2, '=');
+            if parts.next() == Some("token") {
+                parts.next().map(|s| s.to_string())
+            } else {
+                None
+            }
+        })
+    });
+
+    let Some(token) = token else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let is_valid = {
+        let mut sessions = state.sessions.lock().unwrap();
+        if let Some(expires) = sessions.get(&token) {
+            if std::time::Instant::now() < *expires {
+                // Extend session (15 mins rolling)
+                sessions.insert(token.clone(), std::time::Instant::now() + std::time::Duration::from_secs(15 * 60));
+                true
+            } else {
+                sessions.remove(&token);
+                false
+            }
+        } else {
+            false
+        }
+    };
+
+    if is_valid {
+        return next.run(req).await;
+    }
+    
+    StatusCode::UNAUTHORIZED.into_response()
+}
+
+// ─── Handlers: Auth ───────────────────────────────────────────────────────────
+
+async fn login(State(s): State<AppState>, Json(payload): Json<Value>) -> (StatusCode, Json<Value>) {
+    let cfg = s.config.lock().unwrap();
+    
+    let req_user = payload.get("username").and_then(|v| v.as_str()).unwrap_or("");
+    let req_pass = payload.get("password").and_then(|v| v.as_str()).unwrap_or("");
+
+    if req_user == cfg.admin.username && req_pass == cfg.admin.password {
+        let token = uuid::Uuid::new_v4().to_string();
+        let expires = std::time::Instant::now() + std::time::Duration::from_secs(15 * 60);
+        
+        s.sessions.lock().unwrap().insert(token.clone(), expires);
+        
+        (StatusCode::OK, Json(json!({ "token": token })))
+    } else {
+        (StatusCode::UNAUTHORIZED, Json(json!({ "message": "Invalid credentials" })))
+    }
+}
+
+async fn logout(State(s): State<AppState>, req: Request) -> Json<Value> {
+    if let Some(auth) = req.headers().get("Authorization").and_then(|h| h.to_str().ok()) {
+        if let Some(token) = auth.strip_prefix("Bearer ") {
+            s.sessions.lock().unwrap().remove(token);
+        }
+    }
+    Json(json!({ "ok": true }))
 }
 
 // ─── Handlers: Status ─────────────────────────────────────────────────────────
@@ -348,16 +440,16 @@ fn run_iptables(_args: &[impl AsRef<str>]) -> Result<(), String> { Ok(()) }
 
 async fn get_logs() -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
     let stream = async_stream::stream! {
-        // Try journalctl first, fall back to dmesg
-        let mut child = Command::new("journalctl")
-            .args(["-u", "pi-router", "-f", "--no-pager", "-n", "100", "-o", "short"])
+        // Tail the Unified log file 
+        let mut child = Command::new("tail")
+            .args(["-n", "100", "-f", "/tmp/pi-router.log"])
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::null())
             .spawn();
 
         if child.is_err() {
-            // Fallback: dummy stream if journalctl missing (dev/mac)
-            yield Ok(Event::default().data("[log stream not available on this platform. waiting...]"));
+            // Fallback: dummy stream if file missing
+            yield Ok(Event::default().data("[log file /tmp/pi-router.log not available. waiting...]"));
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
                 yield Ok(Event::default().data("[still waiting...]"));

@@ -16,7 +16,7 @@ use error::RouterError;
 use std::{path::PathBuf, sync::{Arc, Mutex}};
 use clap::Parser;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, fmt};
 
 // ─── CLI ──────────────────────────────────────────────────────────────────────
 
@@ -47,9 +47,17 @@ async fn main() {
         }
     };
 
+    let file_appender = tracing_appender::rolling::never("/tmp", "pi-router.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(&cfg.log_level));
-    fmt().with_env_filter(filter).with_target(true).compact().init();
+        
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt::layer().compact().with_target(true))
+        .with(fmt::layer().with_writer(non_blocking).with_ansi(false))
+        .init();
 
     info!(
         version = env!("CARGO_PKG_VERSION"),
@@ -132,6 +140,7 @@ async fn run(cfg: RouterConfig, config_path: String) -> Result<(), RouterError> 
         config_path,
         start_time:  std::time::Instant::now(),
         sys_monitor,
+        sessions:    Arc::new(Mutex::new(std::collections::HashMap::new())),
     };
     let http_addr  = cfg.http_api.listen_addr.clone();
     let _http = tokio::spawn(async move {

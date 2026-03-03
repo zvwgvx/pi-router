@@ -58,6 +58,29 @@ export default function Sidebar() {
                 >
                     Restart Daemon
                 </button>
+                <button
+                    onClick={() => {
+                        localStorage.removeItem('token')
+                        window.location.href = '/login'
+                    }}
+                    style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'transparent',
+                        border: '1px solid #585b70',
+                        borderRadius: 6,
+                        color: '#bac2de',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'opacity 0.15s',
+                        marginTop: '8px'
+                    }}
+                    onMouseEnter={e => { (e.target as HTMLButtonElement).style.opacity = '0.7' }}
+                    onMouseLeave={e => { (e.target as HTMLButtonElement).style.opacity = '1' }}
+                >
+                    Logout
+                </button>
             </div>
         </nav>
     )

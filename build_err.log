@@ -1,0 +1,121 @@
+    Checking pi-router v0.1.0 (/Users/zvwgvx/Antigravity/pi-router)
+warning: unused import: `DeviceState`
+ --> src/watcher.rs:1:23
+  |
+1 | use crate::approval::{DeviceState, SharedRegistry};
+  |                       ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `DeviceState`
+ --> src/api/mod.rs:1:23
+  |
+1 | use crate::approval::{DeviceState, SharedRegistry};
+  |                       ^^^^^^^^^^^
+
+warning: unused import: `crate::config::RouterConfig`
+ --> src/http_api/mod.rs:2:5
+  |
+2 | use crate::config::RouterConfig;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `HeaderValue`
+ --> src/http_api/mod.rs:5:12
+  |
+5 |     http::{HeaderValue, Method, StatusCode},
+  |            ^^^^^^^^^^^
+
+warning: unused import: `Serialize`
+  --> src/http_api/mod.rs:10:26
+   |
+10 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+
+warning: unused imports: `Arc` and `Mutex`
+  --> src/http_api/mod.rs:12:17
+   |
+12 | use std::sync::{Arc, Mutex};
+   |                 ^^^  ^^^^^
+
+warning: unused import: `std::sync::Mutex`
+ --> src/sys_stats.rs:2:5
+  |
+2 | use std::sync::Mutex;
+  |     ^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `refresh_list` found for struct `Networks` in the current scope
+   --> src/sys_stats.rs:53:18
+    |
+ 53 |         self.net.refresh_list(); // refresh network interfaces and bytes
+    |                  ^^^^^^^^^^^^
+    |
+help: there is a method `refresh` with a similar name, but with different arguments
+   --> /Users/zvwgvx/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sysinfo-0.38.3/src/common/network.rs:100:5
+    |
+100 |     pub fn refresh(&mut self, remove_not_listed_interfaces: bool) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `refresh_list` found for struct `Disks` in the current scope
+   --> src/sys_stats.rs:54:20
+    |
+ 54 |         self.disks.refresh_list();
+    |                    ^^^^^^^^^^^^
+    |
+help: there is a method `refresh` with a similar name, but with different arguments
+   --> /Users/zvwgvx/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sysinfo-0.38.3/src/common/disk.rs:328:5
+    |
+328 |     pub fn refresh(&mut self, remove_not_listed_disks: bool) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `refresh_list` found for struct `sysinfo::Components` in the current scope
+   --> src/sys_stats.rs:55:20
+    |
+ 55 |         self.comps.refresh_list();
+    |                    ^^^^^^^^^^^^
+    |
+help: there is a method `refresh` with a similar name, but with different arguments
+   --> /Users/zvwgvx/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sysinfo-0.38.3/src/common/component.rs:149:5
+    |
+149 |     pub fn refresh(&mut self, remove_not_listed_components: bool) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0277]: cannot add-assign `std::option::Option<f32>` to `{float}`
+  --> src/sys_stats.rs:88:20
+   |
+88 |             temp_c += c.temperature();
+   |                    ^^ no implementation for `{float} += std::option::Option<f32>`
+   |
+   = help: the trait `AddAssign<std::option::Option<f32>>` is not implemented for `{float}`
+   = help: the following other types implement trait `AddAssign<Rhs>`:
+             `f128` implements `AddAssign<&f128>`
+             `f128` implements `AddAssign`
+             `f16` implements `AddAssign<&f16>`
+             `f16` implements `AddAssign`
+             `f32` implements `AddAssign<&f32>`
+             `f32` implements `AddAssign`
+             `f64` implements `AddAssign<&f64>`
+             `f64` implements `AddAssign`
+           and 24 others
+
+warning: unused variable: `s`
+   --> src/http_api/mod.rs:193:11
+    |
+193 |     State(s): State<AppState>,
+    |           ^ help: if this is intentional, prefix it with an underscore: `_s`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> src/sys_stats.rs:32:13
+   |
+32 |         let mut net = Networks::new_with_refreshed_list();
+   |             ----^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0277, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `pi-router` (bin "pi-router") generated 9 warnings
+error: could not compile `pi-router` (bin "pi-router") due to 4 previous errors; 9 warnings emitted

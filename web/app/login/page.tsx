@@ -1,10 +1,8 @@
-"use client";
+'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { login } from '@/lib/api'
 
 export default function LoginPage() {
-    const router = useRouter()
     const [username, setUsername] = useState('admin')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
@@ -14,12 +12,11 @@ export default function LoginPage() {
         e.preventDefault()
         setError('')
         setLoading(true)
-
         try {
             const res = await login({ username, password })
             if (res.token) {
                 localStorage.setItem('token', res.token)
-                window.location.href = '/' // Force hard reload to update state in layout
+                window.location.href = '/'
             }
         } catch (err: any) {
             setError(err.message.includes('401') ? 'Invalid login or password' : err.message)
@@ -30,106 +27,112 @@ export default function LoginPage() {
 
     return (
         <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            background: '#e4e4e4',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
+            position: 'fixed', inset: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            background: '#1c1c1e',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontSize: 14,
+            color: '#f0f0f0',
         }}>
-            {/* Header Text */}
-            <h1 style={{
-                fontSize: 24,
-                fontWeight: 700,
-                color: '#333',
-                letterSpacing: 2,
-                marginBottom: 30,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10
-            }}>
-                <span style={{ fontSize: 26 }}>⬢</span> PI-ROUTER
-            </h1>
-
-            {/* Login Box */}
+            {/* Logo */}
             <div style={{
-                background: '#f2f2f2',
-                borderRadius: 8,
-                padding: '30px 40px',
-                width: 320,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                border: '1px solid #d9d9d9',
+                fontSize: 13, fontWeight: 600,
+                letterSpacing: '2px', color: '#ababab',
+                marginBottom: 24,
             }}>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+                PI-ROUTER
+            </div>
 
+            {/* Card */}
+            <div style={{
+                background: '#242426',
+                border: '1px solid #3a3a3c',
+                borderRadius: 6,
+                padding: '24px 28px',
+                width: 300,
+            }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                    {/* Login row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, width: 60, color: '#333' }}>Login</label>
+                        <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Login</label>
                         <input
                             type="text"
                             value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            style={{
-                                flex: 1,
-                                padding: '6px 10px',
-                                border: '1px solid #ccc',
-                                borderRadius: 4,
-                                fontSize: 13,
-                                background: '#fff',
-                                color: '#333'
-                            }}
+                            onChange={e => setUsername(e.target.value)}
                             required
+                            autoFocus
+                            style={{
+                                flex: 1, height: 28,
+                                padding: '0 8px',
+                                background: '#1c1c1e',
+                                border: '1px solid #3a3a3c',
+                                borderRadius: 4,
+                                color: '#f0f0f0',
+                                fontSize: 12,
+                                fontFamily: 'inherit',
+                                outline: 'none',
+                                boxSizing: 'border-box',
+                            }}
                         />
                     </div>
 
+                    {/* Password row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, width: 60, color: '#333' }}>Password</label>
+                        <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Password</label>
                         <input
                             type="password"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={e => setPassword(e.target.value)}
                             style={{
-                                flex: 1,
-                                padding: '6px 10px',
-                                border: '1px solid #ccc',
+                                flex: 1, height: 28,
+                                padding: '0 8px',
+                                background: '#1c1c1e',
+                                border: '1px solid #3a3a3c',
                                 borderRadius: 4,
-                                fontSize: 13,
-                                background: '#fff',
-                                color: '#333'
+                                color: '#f0f0f0',
+                                fontSize: 12,
+                                fontFamily: 'inherit',
+                                outline: 'none',
+                                boxSizing: 'border-box',
                             }}
                         />
                     </div>
 
                     {error && (
-                        <div style={{ color: '#d32f2f', fontSize: 12, textAlign: 'center', marginTop: 5 }}>
+                        <div style={{ color: '#f0a0a0', fontSize: 11, textAlign: 'center' }}>
                             {error}
                         </div>
                     )}
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            background: '#0d5c63',
-                            color: '#fff',
-                            border: 'none',
-                            padding: '8px 24px',
-                            borderRadius: 4,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: loading ? 'not-allowed' : 'pointer',
-                            marginTop: 10,
-                            alignSelf: 'center',
-                            opacity: loading ? 0.7 : 1
-                        }}
-                    >
-                        {loading ? '...' : 'Login'}
-                    </button>
+                    {/* Button */}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                height: 28, padding: '0 28px',
+                                background: '#e0e0e0',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: 4,
+                                color: '#1a1a1a',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                fontFamily: 'inherit',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.5 : 1,
+                            }}
+                        >
+                            {loading ? '...' : 'Login'}
+                        </button>
+                    </div>
                 </form>
             </div>
 
-            <div style={{ marginTop: 40, fontSize: 11, color: '#888' }}>
-                © Pi-Router Gateway
+            {/* Footer */}
+            <div style={{ marginTop: 28, fontSize: 11, color: '#666668' }}>
+                © Pi-Router
             </div>
         </div>
     )

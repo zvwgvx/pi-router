@@ -1,12 +1,11 @@
-'use client'
+"use client";
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { login } from '@/lib/api'
-import { ShieldAlert, Wifi, Activity, ArrowRight, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
     const router = useRouter()
-    const [username, setUsername] = useState('')
+    const [username, setUsername] = useState('admin')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
@@ -20,97 +19,117 @@ export default function LoginPage() {
             const res = await login({ username, password })
             if (res.token) {
                 localStorage.setItem('token', res.token)
-                router.push('/')
+                window.location.href = '/' // Force hard reload to update state in layout
             }
         } catch (err: any) {
-            setError(err.message.includes('401') ? 'Invalid username or password' : err.message)
+            setError(err.message.includes('401') ? 'Invalid login or password' : err.message)
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-4 relative overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-zinc-950">
-            {/* Ambient Background Effects */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-600/10 blur-[120px] rounded-full pointer-events-none" />
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            background: '#e4e4e4',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}>
+            {/* Header Text */}
+            <h1 style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: '#333',
+                letterSpacing: 2,
+                marginBottom: 30,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+            }}>
+                <span style={{ fontSize: 26 }}>⬢</span> PI-ROUTER
+            </h1>
 
-            <div className="w-full max-w-md relative z-10">
-                {/* Logo / Header */}
-                <div className="flex flex-col items-center justify-center mb-8 space-y-4">
-                    <div className="relative">
-                        <div className="absolute -inset-1 bg-red-500 rounded-2xl blur opacity-30 animate-pulse"></div>
-                        <div className="w-16 h-16 bg-zinc-900 rounded-2xl border border-zinc-800 flex items-center justify-center relative shadow-2xl">
-                            <Wifi className="w-8 h-8 text-red-500" />
-                        </div>
+            {/* Login Box */}
+            <div style={{
+                background: '#f2f2f2',
+                borderRadius: 8,
+                padding: '30px 40px',
+                width: 320,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                border: '1px solid #d9d9d9',
+            }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, width: 60, color: '#333' }}>Login</label>
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: '1px solid #ccc',
+                                borderRadius: 4,
+                                fontSize: 13,
+                                background: '#fff',
+                                color: '#333'
+                            }}
+                            required
+                        />
                     </div>
-                    <div className="text-center">
-                        <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Pi-Router</h1>
-                        <p className="text-zinc-400 text-sm">Professional Open-Source Gateway</p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, width: 60, color: '#333' }}>Password</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: '1px solid #ccc',
+                                borderRadius: 4,
+                                fontSize: 13,
+                                background: '#fff',
+                                color: '#333'
+                            }}
+                        />
                     </div>
-                </div>
 
-                {/* Login Card */}
-                <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-50"></div>
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {error && (
-                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start space-x-3">
-                                <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                                <p className="text-sm text-red-300">{error}</p>
-                            </div>
-                        )}
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                                    Username
-                                </label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-mono"
-                                    placeholder="admin"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                                    Password
-                                </label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all font-mono"
-                                    placeholder="••••••••"
-                                    required
-                                />
-                            </div>
+                    {error && (
+                        <div style={{ color: '#d32f2f', fontSize: 12, textAlign: 'center', marginTop: 5 }}>
+                            {error}
                         </div>
+                    )}
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:hover:bg-red-600 text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg shadow-red-900/20 active:scale-[0.98]"
-                        >
-                            {loading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    <span>Authenticate</span>
-                                    <ArrowRight className="w-4 h-4 ml-1" />
-                                </>
-                            )}
-                        </button>
-                    </form>
-                </div>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        style={{
+                            background: '#0d5c63',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '8px 24px',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            marginTop: 10,
+                            alignSelf: 'center',
+                            opacity: loading ? 0.7 : 1
+                        }}
+                    >
+                        {loading ? '...' : 'Login'}
+                    </button>
+                </form>
+            </div>
 
-                {/* Footer */}
-                <p className="text-center text-zinc-600 text-xs mt-8">
-                    Strictly 15-minute active sessions securely enforced.
-                </p>
+            <div style={{ marginTop: 40, fontSize: 11, color: '#888' }}>
+                © Pi-Router Gateway
             </div>
         </div>
     )

@@ -37,6 +37,7 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
+    let config_path_str = cli.config.to_string_lossy().to_string();
 
     let cfg = match RouterConfig::load(&cli.config) {
         Ok(c) => c,
@@ -59,7 +60,7 @@ async fn main() {
         "pi-router starting"
     );
 
-    if let Err(e) = run(cfg).await {
+    if let Err(e) = run(cfg, config_path_str).await {
         error!("Fatal error: {e}");
         std::process::exit(1);
     }
@@ -67,7 +68,7 @@ async fn main() {
 
 // ─── Orchestration ────────────────────────────────────────────────────────────
 
-async fn run(cfg: RouterConfig) -> Result<(), RouterError> {
+async fn run(cfg: RouterConfig, config_path: String) -> Result<(), RouterError> {
     let cfg = Arc::new(cfg);
     // Wrap config in Mutex for mutable HTTP API access
     let cfg_mutex: Arc<Mutex<RouterConfig>> = Arc::new(Mutex::new((*cfg).clone()));
@@ -126,9 +127,10 @@ async fn run(cfg: RouterConfig) -> Result<(), RouterError> {
     // ── HTTP API server ───────────────────────────────────────────────────────
     let sys_monitor = Arc::new(Mutex::new(sys_stats::SystemMonitor::new()));
     let http_state = http_api::AppState {
-        registry:   Arc::clone(&registry),
-        config:     Arc::clone(&cfg_mutex),
-        start_time: std::time::Instant::now(),
+        registry:    Arc::clone(&registry),
+        config:      Arc::clone(&cfg_mutex),
+        config_path,
+        start_time:  std::time::Instant::now(),
         sys_monitor,
     };
     let http_addr  = cfg.http_api.listen_addr.clone();
@@ -151,10 +153,13 @@ async fn run(cfg: RouterConfig) -> Result<(), RouterError> {
     });
 
     // Lease watcher — detects new clients → marks Pending
-    let watch_reg  = Arc::clone(&registry);
-    let watch_secs = cfg.monitor.check_interval_secs;
+    let watch_reg       = Arc::clone(&registry);
+    let watch_secs      = cfg.monitor.check_interval_secs;
+    let watch_require   = cfg.approval.require_approval;
+    let watch_wan       = cfg.wan.interface.clone();
+    let watch_ap        = cfg.ap.interface.clone();
     let _watcher = tokio::spawn(async move {
-        watcher::run(watch_reg, watch_secs).await;
+        watcher::run(watch_reg, watch_secs, watch_require, watch_wan, watch_ap).await;
     });
 
     // API server — Unix socket for pictl commands

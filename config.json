@@ -1,35 +1,47 @@
 {
-    "wan": {
-        "interface": "eth0"
-    },
-    "ap": {
-        "interface": "wlan1",
-        "ssid": "Pi-Router",
-        "password": "supersecret",
-        "channel": 6,
-        "hw_mode": "g",
-        "country_code": "VN",
-        "ieee80211n": true,
-        "wmm_enabled": true
-    },
-    "dhcp": {
-        "ap_ip": "10.13.37.1",
-        "netmask": "255.255.255.0",
-        "prefix_len": 24,
-        "range_start": "10.13.37.10",
-        "range_end": "10.13.37.200",
-        "lease_time": "12h",
-        "dns_servers": [
-            "8.8.8.8",
-            "1.1.1.1"
-        ]
-    },
-    "monitor": {
-        "check_interval_secs": 5,
-        "max_restart_attempts": 5
-    },
-    "approval": {
-        "devices_store": "/etc/pi-router/devices.json"
-    },
-    "log_level": "info"
+  "wan": {
+    "interface": "eth0"
+  },
+  "ap": {
+    "interface": "wlan1",
+    "ssid": "Pi-Router",
+    "password": "supersecret",
+    "channel": 128,
+    "hw_mode": "a",
+    "country_code": "VN",
+    "ieee80211n": true,
+    "ieee80211ac": true,
+    "ieee80211ax": true,
+    "ignore_broadcast_ssid": false,
+    "wmm_enabled": true,
+    "password_enabled": true
+  },
+  "dhcp": {
+    "ap_ip": "10.13.37.1",
+    "netmask": "255.255.255.0",
+    "prefix_len": 24,
+    "range_start": "10.13.37.10",
+    "range_end": "10.13.37.200",
+    "lease_time": "12h",
+    "dns_servers": [
+      "8.8.8.8",
+      "1.1.1.1"
+    ]
+  },
+  "monitor": {
+    "check_interval_secs": 5,
+    "max_restart_attempts": 5
+  },
+  "approval": {
+    "devices_store": "/etc/pi-router/devices.json",
+    "require_approval": true
+  },
+  "http_api": {
+    "listen_addr": "0.0.0.0:8080"
+  },
+  "admin": {
+    "username": "admin",
+    "password": "admin"
+  },
+  "log_level": "info"
 }

@@ -22,8 +22,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 clap         = { version = "4",   features = ["derive"] }
 libc         = "0.2"
 tempfile     = "3"
-axum         = { version = "0.7", features = ["macros"] }
+axum         = { version = "0.7", features = ["macros", "ws"] }
 tower-http   = { version = "0.5", features = ["cors", "trace"] }
+futures-util = { version = "0.3", features = ["sink"] }
+async-stream = "0.3"
 sysinfo = "0.38.3"
 
 [profile.release]

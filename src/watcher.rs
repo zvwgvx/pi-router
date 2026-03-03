@@ -6,11 +6,17 @@ const LEASE_FILE: &str = "/tmp/pi-router-dnsmasq.leases";
 
 /// Watches the dnsmasq lease file every `poll_secs` seconds.
 /// On each tick, parses the current leases and syncs newly seen clients
-/// into the registry as `Pending`.
+/// into the registry as `Pending` (or auto-approves if require_approval is false).
 ///
 /// dnsmasq lease file format (space-separated):
 ///   <expiry_timestamp> <mac> <ip> <hostname> <client-id>
-pub async fn run(registry: SharedRegistry, poll_secs: u64) {
+pub async fn run(
+    registry: SharedRegistry,
+    poll_secs: u64,
+    require_approval: bool,
+    wan: String,
+    ap: String,
+) {
     let mut tick = interval(Duration::from_secs(poll_secs));
     tick.tick().await; // skip first immediate tick
 
@@ -29,10 +35,14 @@ pub async fn run(registry: SharedRegistry, poll_secs: u64) {
             };
 
             if is_new {
-                info!(
-                    mac, ip, hostname,
-                    "⏳ New device connected — PENDING approval"
-                );
+                if require_approval {
+                    info!(mac, ip, hostname, "New device connected — PENDING approval");
+                } else {
+                    // Auto-approve immediately
+                    let mut reg = registry.lock().unwrap();
+                    let _ = reg.approve(&mac, &wan, &ap);
+                    info!(mac, ip, hostname, "New device connected — auto-approved");
+                }
             } else {
                 debug!(mac, ip, "Lease refreshed");
             }

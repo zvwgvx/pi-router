@@ -5,7 +5,7 @@ use crate::{
 };
 use std::sync::{Arc, Mutex};
 use tokio::time::{interval, Duration};
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 
 /// Async health-monitor: periodically checks whether `hostapd` and `dnsmasq`
 /// are alive; restarts them if they have crashed. Gives up after
@@ -38,7 +38,7 @@ pub async fn run(
                 warn!(daemon = "hostapd", "Detected crash — restarting");
                 hp.restart()?;
             } else {
-                info!(daemon = "hostapd", "OK");
+                debug!(daemon = "hostapd", "OK");
             }
         }
 
@@ -59,7 +59,7 @@ pub async fn run(
                 warn!(daemon = "dnsmasq", "Detected crash — restarting");
                 dm.restart()?;
             } else {
-                info!(daemon = "dnsmasq", "OK");
+                debug!(daemon = "dnsmasq", "OK");
             }
         }
     }

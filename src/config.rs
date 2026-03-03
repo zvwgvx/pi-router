@@ -14,6 +14,8 @@ pub struct RouterConfig {
     pub approval: ApprovalConfig,
     #[serde(default)]
     pub http_api: HttpApiConfig,
+    #[serde(default)]
+    pub admin: AdminConfig,
     #[serde(default = "default_log_level")]
     pub log_level: String,
 }
@@ -52,6 +54,9 @@ pub struct ApConfig {
     /// Enable 802.11n (HT) extensions
     #[serde(default = "default_true")]
     pub ieee80211n: bool,
+    /// Enable 802.11ac (VHT) extensions for Wi-Fi 5
+    #[serde(default = "default_false")]
+    pub ieee80211ac: bool,
     /// Enable 802.11ax (Wi-Fi 6) extensions
     #[serde(default = "default_false")]
     pub ieee80211ax: bool,
@@ -61,6 +66,9 @@ pub struct ApConfig {
     /// Enable WMM (QoS for multimedia)
     #[serde(default = "default_true")]
     pub wmm_enabled: bool,
+    /// Require WPA2 password (false = open network)
+    #[serde(default = "default_true")]
+    pub password_enabled: bool,
 }
 
 fn default_channel() -> u8 { 6 }
@@ -116,11 +124,17 @@ pub struct ApprovalConfig {
     /// Path to the JSON file storing device state across restarts
     #[serde(default = "default_devices_store")]
     pub devices_store: String,
+    /// When false, all new devices are auto-approved without manual review
+    #[serde(default = "default_true")]
+    pub require_approval: bool,
 }
 
 impl Default for ApprovalConfig {
     fn default() -> Self {
-        Self { devices_store: default_devices_store() }
+        Self {
+            devices_store: default_devices_store(),
+            require_approval: true,
+        }
     }
 }
 
@@ -146,6 +160,28 @@ impl Default for HttpApiConfig {
 fn default_listen_addr() -> String {
     "0.0.0.0:8080".to_string()
 }
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminConfig {
+    #[serde(default = "default_admin_user")]
+    pub username: String,
+    #[serde(default = "default_admin_password")]
+    pub password: String,
+}
+
+impl Default for AdminConfig {
+    fn default() -> Self {
+        Self {
+            username: default_admin_user(),
+            password: default_admin_password(),
+        }
+    }
+}
+
+fn default_admin_user() -> String { "admin".to_string() }
+fn default_admin_password() -> String { "admin".to_string() }
 
 // ─── Loading + Validation ─────────────────────────────────────────────────────
 
@@ -178,7 +214,7 @@ impl RouterConfig {
                 "ap.ssid must be 1–32 characters".into(),
             ));
         }
-        if self.ap.password.len() < 8 {
+        if self.ap.password_enabled && self.ap.password.len() < 8 {
             return Err(RouterError::Config(
                 "ap.password must be at least 8 characters (WPA2 requirement)".into(),
             ));

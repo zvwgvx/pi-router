@@ -1,5 +1,6 @@
 // Central API client — all fetches point to the Rust daemon's HTTP API
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
+export const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
+const API_BASE = API
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {

@@ -1,15 +1,19 @@
 use crate::approval::{DeviceState, SharedRegistry};
 use crate::config::RouterConfig;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, State, ws::{WebSocket, WebSocketUpgrade, Message}},
     http::{HeaderValue, Method, StatusCode},
-    response::Json,
+    response::{Json, Sse, sse::Event},
     routing::{delete, get, post, put},
     Router,
 };
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
+use std::convert::Infallible;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -19,6 +23,7 @@ use tracing::info;
 pub struct AppState {
     pub registry: SharedRegistry,
     pub config: std::sync::Arc<std::sync::Mutex<crate::config::RouterConfig>>,
+    pub config_path: String,
     pub start_time: std::time::Instant,
     pub sys_monitor: std::sync::Arc<std::sync::Mutex<crate::sys_stats::SystemMonitor>>,
 }
@@ -53,6 +58,8 @@ pub fn build_router(state: AppState) -> Router {
         // System / Stats
         .route("/api/interfaces",              get(get_interfaces))
         .route("/api/system",                  post(post_system))
+        .route("/api/logs",                    get(get_logs))
+        .route("/api/terminal",                get(terminal_ws))
         .layer(cors)
         .with_state(state)
 }
@@ -187,28 +194,25 @@ async fn post_system(
     }
 }
 
-#[derive(Deserialize)]
-struct ConfigUpdate {
-    ssid:        Option<String>,
-    password:    Option<String>,
-    channel:     Option<u8>,
-    hw_mode:     Option<String>,
-    country_code:Option<String>,
-    log_level:   Option<String>,
-}
-
 async fn put_config(
     State(s): State<AppState>,
-    Json(body): Json<ConfigUpdate>,
+    Json(body): Json<crate::config::RouterConfig>,
 ) -> (StatusCode, Json<Value>) {
-    let mut cfg = s.config.lock().unwrap();
-    if let Some(v) = body.ssid        { cfg.ap.ssid        = v; }
-    if let Some(v) = body.password    { cfg.ap.password     = v; }
-    if let Some(v) = body.channel     { cfg.ap.channel      = v; }
-    if let Some(v) = body.hw_mode     { cfg.ap.hw_mode      = v; }
-    if let Some(v) = body.country_code{ cfg.ap.country_code = v; }
-    if let Some(v) = body.log_level   { cfg.log_level       = v; }
-    (StatusCode::OK, Json(json!({ "ok": true, "message": "Config updated (restart daemons to apply)" })))
+    // Validate the incoming config
+    if let Err(e) = body.validate() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "message": e.to_string() })));
+    }
+    // Persist to disk
+    let json_str = match serde_json::to_string_pretty(&body) {
+        Ok(s) => s,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "message": e.to_string() }))),
+    };
+    if let Err(e) = std::fs::write(&s.config_path, &json_str) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "message": format!("Failed to write config: {e}") })));
+    }
+    // Update in-memory config
+    *s.config.lock().unwrap() = body;
+    (StatusCode::OK, Json(json!({ "ok": true, "message": "Config saved. Restart daemon to apply." })))
 }
 
 // ─── Handlers: Firewall ───────────────────────────────────────────────────────
@@ -339,3 +343,114 @@ fn run_iptables(args: &[impl AsRef<str>]) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn run_iptables(_args: &[impl AsRef<str>]) -> Result<(), String> { Ok(()) }
+
+// ─── SSE: Log streaming ────────────────────────────────────────────────────────
+
+async fn get_logs() -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
+    let stream = async_stream::stream! {
+        // Try journalctl first, fall back to dmesg
+        let mut child = Command::new("journalctl")
+            .args(["-u", "pi-router", "-f", "--no-pager", "-n", "100", "-o", "short"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn();
+
+        if child.is_err() {
+            // Fallback: dummy stream if journalctl missing (dev/mac)
+            yield Ok(Event::default().data("[log stream not available on this platform. waiting...]"));
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+                yield Ok(Event::default().data("[still waiting...]"));
+            }
+        }
+
+        let mut child = child.unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let mut reader = BufReader::new(stdout).lines();
+
+        while let Ok(Some(line)) = reader.next_line().await {
+            yield Ok(Event::default().data(line));
+        }
+    };
+    Sse::new(stream)
+}
+
+// ─── WebSocket: Terminal ───────────────────────────────────────────────────────
+
+async fn terminal_ws(ws: WebSocketUpgrade) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(handle_terminal)
+}
+
+async fn handle_terminal(mut socket: WebSocket) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use futures_util::SinkExt;
+
+    // On macOS, script -F -q /dev/null bash provides a PTY. Actually -F is not supported on some macOS script versions. Just -q. 
+    // On Linux, script -q -c bash /dev/null provides a PTY.
+    let (prog, args) = if cfg!(target_os = "macos") {
+        ("script", vec!["-q", "/dev/null", "bash", "-l"])
+    } else {
+        ("script", vec!["-q", "-c", "bash -l", "/dev/null"])
+    };
+
+    let mut child = match Command::new(prog)
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = socket.send(Message::Text(format!("Failed to spawn shell: {e}"))).await;
+            return;
+        }
+    };
+
+    let mut bash_stdin  = child.stdin.take().unwrap();
+    let mut bash_stdout = child.stdout.take().unwrap();
+    let mut bash_stderr = child.stderr.take().unwrap();
+
+    let mut out_buf = vec![0u8; 4096];
+    let mut err_buf = vec![0u8; 4096];
+
+    loop {
+        tokio::select! {
+            // WebSocket -> bash stdin
+            msg = socket.recv() => {
+                match msg {
+                    Some(Ok(Message::Text(text))) => {
+                        if bash_stdin.write_all(text.as_bytes()).await.is_err() { break; }
+                    }
+                    Some(Ok(Message::Binary(bin))) => {
+                        if bash_stdin.write_all(&bin).await.is_err() { break; }
+                    }
+                    _ => break,
+                }
+            }
+            // bash stdout -> WebSocket
+            n = bash_stdout.read(&mut out_buf) => {
+                match n {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let s = String::from_utf8_lossy(&out_buf[..n]).to_string();
+                        if socket.send(Message::Text(s)).await.is_err() { break; }
+                    }
+                }
+            }
+            // bash stderr -> WebSocket
+            n = bash_stderr.read(&mut err_buf) => {
+                match n {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let s = String::from_utf8_lossy(&err_buf[..n]).to_string();
+                        if socket.send(Message::Text(s)).await.is_err() { break; }
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = child.kill().await;
+}
+

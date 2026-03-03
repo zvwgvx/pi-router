@@ -24,10 +24,10 @@ const SECTIONS: Section[] = [
             { key: 'ch', label: 'Channel', hint: '1–14 (2.4 GHz) / 36–165 (5 GHz)', path: ['ap', 'channel'], type: 'number' },
             { key: 'hw', label: 'Wi-Fi Band', hint: '', path: ['ap', 'hw_mode'], type: 'select', opts: [{ value: 'g', label: '2.4 GHz' }, { value: 'a', label: '5 GHz' }] },
             { key: 'cc', label: 'Country Code', hint: 'ISO 3166-1 alpha-2', path: ['ap', 'country_code'], type: 'text' },
-            { key: 'n80211n', label: 'Wi-Fi 4 (802.11n)', hint: 'Enable HT extensions', path: ['ap', 'ieee80211n'], type: 'bool' },
-            { key: 'n80211ax', label: 'Wi-Fi 6 (802.11ax)', hint: 'Enable HE extensions', path: ['ap', 'ieee80211ax'], type: 'bool' },
+            { key: 'wifi_ver', label: 'Wi-Fi Version', hint: '', path: ['_virtual'], type: 'select', opts: [{ value: 'legacy', label: 'Legacy (802.11a/b/g)' }, { value: '4', label: 'Wi-Fi 4 (802.11n)' }, { value: '5', label: 'Wi-Fi 5 (802.11ac)' }, { value: '6', label: 'Wi-Fi 6 (802.11ax)' }] },
             { key: 'wmm', label: 'WMM', hint: 'QoS for multimedia', path: ['ap', 'wmm_enabled'], type: 'bool' },
             { key: 'hide_ssid', label: 'Hidden Network', hint: 'Do not broadcast SSID', path: ['ap', 'ignore_broadcast_ssid'], type: 'bool' },
+            { key: 'pw_enabled', label: 'Require Password', hint: 'Disable for open network', path: ['ap', 'password_enabled'], type: 'bool' },
         ]
     },
     {
@@ -47,10 +47,19 @@ const SECTIONS: Section[] = [
         ]
     },
     {
+        title: 'Monitor', rows: [
+            { key: 'interval', label: 'Health Check Interval', hint: 'Seconds between checks', path: ['monitor', 'check_interval_secs'], type: 'number' },
+            { key: 'restarts', label: 'Max Restarts', hint: 'Give up if daemon crashes N times', path: ['monitor', 'max_restart_attempts'], type: 'number' },
+        ]
+    },
+    {
         title: 'System', rows: [
             { key: 'log', label: 'Log Level', hint: '', path: ['log_level'], type: 'select', opts: ['trace', 'debug', 'info', 'warn', 'error'] },
             { key: 'listen', label: 'API Listen Addr', hint: 'e.g. 0.0.0.0:8080', path: ['http_api', 'listen_addr'], type: 'text' },
             { key: 'devstore', label: 'Devices Store', hint: 'Path to devices.json', path: ['approval', 'devices_store'], type: 'text' },
+            { key: 'require_approval', label: 'Device Approval', hint: 'Require manual approval for new clients', path: ['approval', 'require_approval'], type: 'bool' },
+            { key: 'admin_user', label: 'Admin Username', hint: '', path: ['admin', 'username'], type: 'text' },
+            { key: 'admin_pass', label: 'Admin Password', hint: 'Panel login password', path: ['admin', 'password'], type: 'pw' },
         ]
     },
 ]
@@ -66,6 +75,23 @@ export default function ConfigPage() {
     const [dirty, setDirty] = useState(false)
 
     const [ifaces, setIfaces] = useState<string[]>([])
+    const [chErr, setChErr] = useState<string | null>(null)
+
+    const CH_24 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+    const CH_5 = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 149, 153, 157, 161, 165]
+
+    const randomCh = (band: string) => {
+        const pool = band === 'a' ? CH_5 : CH_24
+        return pool[Math.floor(Math.random() * pool.length)]
+    }
+
+    const validateChannel = (ch: number, band: string) => {
+        if (band === 'a' && !CH_5.includes(ch))
+            return `Channel ${ch} is not valid for 5 GHz. Valid: 36–165 (standard U-NII channels).`
+        if (band === 'g' && (ch < 1 || ch > 13))
+            return `Channel ${ch} is not valid for 2.4 GHz. Valid: 1–13.`
+        return null
+    }
 
     const load = useCallback(async () => {
         try {
@@ -81,6 +107,12 @@ export default function ConfigPage() {
                         : (v ?? '')
                 }
             }
+            // Derive wifi_ver from AP settings
+            if (c.ap.ieee80211ax) init.wifi_ver = '6'
+            else if (c.ap.ieee80211ac) init.wifi_ver = '5'
+            else if (c.ap.ieee80211n) init.wifi_ver = '4'
+            else init.wifi_ver = 'legacy'
+
             setVals(init)
             setDirty(false)
             setErr(null)
@@ -89,7 +121,22 @@ export default function ConfigPage() {
 
     useEffect(() => { load() }, [load])
 
-    const set = (k: string, v: any) => { setVals(x => ({ ...x, [k]: v })); setDirty(true) }
+    const set = (k: string, v: any) => {
+        setVals(x => {
+            const next = { ...x, [k]: v }
+            // When band changes, auto-randomize channel
+            if (k === 'hw') {
+                next.ch = randomCh(v as string)
+                setChErr(null)
+            }
+            // When channel changes, live-validate
+            if (k === 'ch') {
+                setChErr(validateChannel(Number(v), x.hw as string))
+            }
+            return next
+        })
+        setDirty(true)
+    }
 
     const save = async () => {
         try {
@@ -102,10 +149,12 @@ export default function ConfigPage() {
                     channel: Number(vals.ch),
                     hw_mode: vals.hw,
                     country_code: vals.cc,
-                    ieee80211n: !!vals.n80211n,
-                    ieee80211ax: !!vals.n80211ax,
+                    ieee80211n: vals.wifi_ver === '4' || vals.wifi_ver === '5' || vals.wifi_ver === '6',
+                    ieee80211ac: vals.wifi_ver === '5' || vals.wifi_ver === '6',
+                    ieee80211ax: vals.wifi_ver === '6',
                     ignore_broadcast_ssid: !!vals.hide_ssid,
                     wmm_enabled: !!vals.wmm,
+                    password_enabled: !!vals.pw_enabled,
                 },
                 dhcp: {
                     ap_ip: vals.ap_ip,
@@ -122,7 +171,8 @@ export default function ConfigPage() {
                 },
                 log_level: vals.log,
                 http_api: { listen_addr: vals.listen },
-                approval: { devices_store: vals.devstore },
+                approval: { devices_store: vals.devstore, require_approval: !!vals.require_approval },
+                admin: { username: vals.admin_user, password: vals.admin_pass },
             }
             await putConfig(body)
             setSaved(true)
@@ -149,20 +199,6 @@ export default function ConfigPage() {
                 <div className="tb-sep" />
                 {saved && <span className="tb-info">Saved — restart daemon to apply</span>}
                 {dirty && !saved && <span className="tb-info">Unsaved changes</span>}
-                <div style={{ marginLeft: 'auto' }}>
-                    {tab === 'System' && (
-                        <button className="tb-btn" style={{ color: 'var(--danger, #e05252)' }} onClick={async () => {
-                            if (confirm('Restart router daemon? This will drop all connections.')) {
-                                try {
-                                    await postSystem('restart_service');
-                                    alert('Daemon restarting. Please wait a few seconds before refreshing.');
-                                } catch (err: any) {
-                                    alert(`Failed: ${err.message}`);
-                                }
-                            }
-                        }}>Restart Daemon</button>
-                    )}
-                </div>
             </div>
 
             {err && <div className="alertbar alertbar-err">Error: {err}</div>}
@@ -220,7 +256,11 @@ export default function ConfigPage() {
                                                 />
                                             )}
                                         </td>
-                                        <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>{r.hint}</td>
+                                        <td style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                                            {r.key === 'ch' && chErr
+                                                ? <span style={{ color: 'var(--danger, #e05252)' }}>{chErr}</span>
+                                                : r.hint}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

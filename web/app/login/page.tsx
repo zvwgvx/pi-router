@@ -35,7 +35,6 @@ export default function LoginPage() {
             fontSize: 14,
             color: '#f0f0f0',
         }}>
-            {/* Logo */}
             <div style={{
                 fontSize: 13, fontWeight: 600,
                 letterSpacing: '2px', color: '#ababab',
@@ -44,7 +43,6 @@ export default function LoginPage() {
                 PI-ROUTER
             </div>
 
-            {/* Card */}
             <div style={{
                 background: '#242426',
                 border: '1px solid #3a3a3c',
@@ -53,8 +51,6 @@ export default function LoginPage() {
                 width: 300,
             }}>
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                    {/* Login row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Login</label>
                         <input
@@ -77,8 +73,6 @@ export default function LoginPage() {
                             }}
                         />
                     </div>
-
-                    {/* Password row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Password</label>
                         <input
@@ -99,14 +93,11 @@ export default function LoginPage() {
                             }}
                         />
                     </div>
-
                     {error && (
                         <div style={{ color: '#f0a0a0', fontSize: 11, textAlign: 'center' }}>
                             {error}
                         </div>
                     )}
-
-                    {/* Button */}
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
                         <button
                             type="submit"
@@ -129,8 +120,6 @@ export default function LoginPage() {
                     </div>
                 </form>
             </div>
-
-            {/* Footer */}
             <div style={{ marginTop: 28, fontSize: 11, color: '#666668' }}>
                 © Pi-Router
             </div>

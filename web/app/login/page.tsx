@@ -36,9 +36,9 @@ export default function LoginPage() {
             color: '#f0f0f0',
         }}>
             <div style={{
-                fontSize: 13, fontWeight: 600,
+                fontSize: 14, fontWeight: 600,
                 letterSpacing: '2px', color: '#ababab',
-                marginBottom: 24,
+                marginBottom: 28,
             }}>
                 PI-ROUTER
             </div>
@@ -46,13 +46,14 @@ export default function LoginPage() {
             <div style={{
                 background: '#242426',
                 border: '1px solid #3a3a3c',
-                borderRadius: 6,
-                padding: '24px 28px',
-                width: 300,
+                borderRadius: 8,
+                padding: '36px 40px',
+                width: 380,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.1)'
             }}>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Login</label>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 13, color: '#ababab', fontWeight: 500 }}>Login</label>
                         <input
                             type="text"
                             value={username}
@@ -60,67 +61,79 @@ export default function LoginPage() {
                             required
                             autoFocus
                             style={{
-                                flex: 1, height: 28,
-                                padding: '0 8px',
+                                width: '100%', height: 38,
+                                padding: '0 12px',
                                 background: '#1c1c1e',
                                 border: '1px solid #3a3a3c',
-                                borderRadius: 4,
+                                borderRadius: 6,
                                 color: '#f0f0f0',
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontFamily: 'inherit',
                                 outline: 'none',
                                 boxSizing: 'border-box',
+                                transition: 'border-color 0.2s ease'
                             }}
+                            onFocus={e => (e.currentTarget.style.borderColor = '#585b70')}
+                            onBlur={e => (e.currentTarget.style.borderColor = '#3a3a3c')}
                         />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <label style={{ fontSize: 12, color: '#ababab', width: 65, flexShrink: 0 }}>Password</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ fontSize: 13, color: '#ababab', fontWeight: 500 }}>Password</label>
                         <input
                             type="password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             style={{
-                                flex: 1, height: 28,
-                                padding: '0 8px',
+                                width: '100%', height: 38,
+                                padding: '0 12px',
                                 background: '#1c1c1e',
                                 border: '1px solid #3a3a3c',
-                                borderRadius: 4,
+                                borderRadius: 6,
                                 color: '#f0f0f0',
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontFamily: 'inherit',
                                 outline: 'none',
                                 boxSizing: 'border-box',
+                                transition: 'border-color 0.2s ease'
                             }}
+                            onFocus={e => (e.currentTarget.style.borderColor = '#585b70')}
+                            onBlur={e => (e.currentTarget.style.borderColor = '#3a3a3c')}
                         />
                     </div>
                     {error && (
-                        <div style={{ color: '#f0a0a0', fontSize: 11, textAlign: 'center' }}>
+                        <div style={{ color: '#f0a0a0', fontSize: 13, textAlign: 'center' }}>
                             {error}
                         </div>
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
                         <button
                             type="submit"
                             disabled={loading}
                             style={{
-                                height: 28, padding: '0 28px',
+                                height: 38, padding: '0 40px',
                                 background: '#e0e0e0',
                                 border: '1px solid #e0e0e0',
-                                borderRadius: 4,
+                                borderRadius: 6,
                                 color: '#1a1a1a',
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: 600,
                                 fontFamily: 'inherit',
                                 cursor: loading ? 'not-allowed' : 'pointer',
-                                opacity: loading ? 0.5 : 1,
+                                opacity: loading ? 0.7 : 1,
+                                transition: 'opacity 0.2s ease, transform 0.1s ease',
+                                width: '100%'
                             }}
+                            onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.9' }}
+                            onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1' }}
+                            onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)' }}
+                            onMouseUp={e => { if (!loading) e.currentTarget.style.transform = 'scale(1)' }}
                         >
                             {loading ? '...' : 'Login'}
                         </button>
                     </div>
                 </form>
             </div>
-            <div style={{ marginTop: 28, fontSize: 11, color: '#666668' }}>
+            <div style={{ marginTop: 32, fontSize: 12, color: '#666668' }}>
                 © Pi-Router
             </div>
         </div>

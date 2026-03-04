@@ -1,6 +1,6 @@
-// Central API client — all fetches point to the Rust daemon's HTTP API
-export const API = process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== 'undefined' ? `http://${window.location.hostname}:8080` : 'http://127.0.0.1:8080');
-const API_BASE = API;
+// Central API client — all fetches point to the Next.js reverse proxy which forwards to Rust
+export const API = process.env.NEXT_PUBLIC_API_URL ?? ''
+const API_BASE = API
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
